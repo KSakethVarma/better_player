@@ -25,9 +25,6 @@ class BetterPlayerSubtitlesDrawer extends StatefulWidget {
 
 class _BetterPlayerSubtitlesDrawerState
     extends State<BetterPlayerSubtitlesDrawer> {
-  final RegExp htmlRegExp =
-      // ignore: unnecessary_raw_strings
-      RegExp(r"<[^>]*>", multiLine: true);
   late TextStyle _innerTextStyle;
   late TextStyle _outerTextStyle;
 
@@ -42,10 +39,10 @@ class _BetterPlayerSubtitlesDrawerState
   void initState() {
     _visibilityStreamSubscription =
         widget.playerVisibilityStream.listen((state) {
-      setState(() {
-        _playerVisible = state;
-      });
-    });
+          setState(() {
+            _playerVisible = state;
+          });
+        });
 
     if (widget.betterPlayerSubtitlesConfiguration != null) {
       _configuration = widget.betterPlayerSubtitlesConfiguration;
@@ -90,24 +87,34 @@ class _BetterPlayerSubtitlesDrawerState
     }
   }
 
+  BetterPlayerSubtitlesConfiguration get _effectiveConfiguration =>
+      widget.betterPlayerSubtitlesConfiguration ?? setupDefaultConfiguration();
+
+  MainAxisAlignment _mainAxisAlignmentForSubtitleRow(Alignment a) {
+    const t = 0.2;
+    if (a.x < -t) return MainAxisAlignment.start;
+    if (a.x > t) return MainAxisAlignment.end;
+    return MainAxisAlignment.center;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final cfg = _effectiveConfiguration;
     final BetterPlayerSubtitle? subtitle = _getSubtitleAtCurrentPosition();
     widget.betterPlayerController.renderedSubtitle = subtitle;
     final List<String> subtitles = subtitle?.texts ?? [];
     final List<Widget> textWidgets =
-        subtitles.map((text) => _buildSubtitleTextWidget(text)).toList();
+    subtitles.map((text) => _buildSubtitleTextWidget(text)).toList();
 
     return Container(
       height: double.infinity,
       width: double.infinity,
       child: Padding(
         padding: EdgeInsets.only(
-            bottom: _playerVisible
-                ? _configuration!.bottomPadding + 30
-                : _configuration!.bottomPadding,
-            left: _configuration!.leftPadding,
-            right: _configuration!.rightPadding),
+          bottom: _playerVisible
+              ? cfg.bottomPadding + 30
+              : cfg.bottomPadding,
+        ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.end,
           children: textWidgets,
@@ -132,28 +139,68 @@ class _BetterPlayerSubtitlesDrawerState
   }
 
   Widget _buildSubtitleTextWidget(String subtitleText) {
-    return Row(children: [
-      Expanded(
-        child: Align(
-          alignment: _configuration!.alignment,
-          child: _getTextWithStroke(subtitleText),
-        ),
-      ),
-    ]);
+    final cfg = _effectiveConfiguration;
+    return Row(
+      mainAxisAlignment: _mainAxisAlignmentForSubtitleRow(cfg.alignment),
+      children: [
+        _getTextWithStroke(subtitleText),
+      ],
+    );
   }
 
+  bool _subtitleTextLooksLikeHtml(String s) =>
+      s.contains('<') && s.contains('>');
+
   Widget _getTextWithStroke(String subtitleText) {
-    return Container(
-      color: _configuration!.backgroundColor,
-      child: Stack(
-        children: [
-          if (_configuration!.outlineEnabled)
-            _buildHtmlWidget(subtitleText, _outerTextStyle)
-          else
-            const SizedBox(),
-          _buildHtmlWidget(subtitleText, _innerTextStyle)
-        ],
+    final cfg = _effectiveConfiguration;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: cfg.backgroundColor,
       ),
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: cfg.leftPadding,
+          right: cfg.rightPadding,
+          top: 4,
+          bottom: 4,
+        ),
+        child: _subtitleTextLooksLikeHtml(subtitleText)
+            ? IntrinsicWidth(
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              if (cfg.outlineEnabled)
+                _buildHtmlWidget(subtitleText, _outerTextStyle)
+              else
+                const SizedBox(),
+              _buildHtmlWidget(subtitleText, _innerTextStyle)
+            ],
+          ),
+        )
+            : _buildPlainSubtitleWithStroke(subtitleText, cfg),
+      ),
+    );
+  }
+
+  Widget _buildPlainSubtitleWithStroke(String text,
+      BetterPlayerSubtitlesConfiguration cfg,) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        if (cfg.outlineEnabled)
+          Text(
+            text,
+            style: _outerTextStyle,
+            textAlign: TextAlign.center,
+            softWrap: true,
+          ),
+        Text(
+          text,
+          style: _innerTextStyle,
+          textAlign: TextAlign.center,
+          softWrap: true,
+        ),
+      ],
     );
   }
 
