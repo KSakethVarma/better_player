@@ -755,11 +755,11 @@ extension BetterPlayer$Methods on BetterPlayer {
     final _$$ref$3 = certificateUrl?.ref;
     final _$$ref$4 = licenseUrl?.ref;
     final _$$ref$5 = headers.ref;
-    final _$$ref$9 = drmHeaders.ref;
-    final _$$ref$6 = cacheKey?.ref;
-    final _$$ref$7 = cacheManager.ref;
-    final _$$ref$8 = videoExtension?.ref;
-    _objc_msgSend_1vngrzb(
+    final _$$ref$6 = drmHeaders.ref;
+    final _$$ref$7 = cacheKey?.ref;
+    final _$$ref$8 = cacheManager.ref;
+    final _$$ref$9 = videoExtension?.ref;
+    _objc_msgSend_1hiz4xx(
       _$$ref.pointer,
       _sel_setDataSourceURL_key_certificateUrl_licenseUrl_headers_drmHeaders_useCache_cacheKey_cacheManager_overriddenDuration_videoExtension_,
       _$$ref$1.pointer,
@@ -767,12 +767,12 @@ extension BetterPlayer$Methods on BetterPlayer {
       _$$ref$3?.pointer ?? ffi.nullptr,
       _$$ref$4?.pointer ?? ffi.nullptr,
       _$$ref$5.pointer,
-      _$$ref$9.pointer,
+      _$$ref$6.pointer,
       useCache,
-      _$$ref$6?.pointer ?? ffi.nullptr,
-      _$$ref$7.pointer,
+      _$$ref$7?.pointer ?? ffi.nullptr,
+      _$$ref$8.pointer,
       overriddenDuration,
-      _$$ref$8?.pointer ?? ffi.nullptr,
+      _$$ref$9?.pointer ?? ffi.nullptr,
     );
   }
 
@@ -5858,6 +5858,43 @@ final _objc_msgSend_1cwp428 = objc.msgSendPointer
         ffi.Pointer<objc.NSZone>,
       )
     >();
+final _objc_msgSend_1hiz4xx = objc.msgSendPointer
+    .cast<
+      ffi.NativeFunction<
+        ffi.Void Function(
+          ffi.Pointer<objc.ObjCObjectImpl>,
+          ffi.Pointer<objc.ObjCSelector>,
+          ffi.Pointer<objc.ObjCObjectImpl>,
+          ffi.Pointer<objc.ObjCObjectImpl>,
+          ffi.Pointer<objc.ObjCObjectImpl>,
+          ffi.Pointer<objc.ObjCObjectImpl>,
+          ffi.Pointer<objc.ObjCObjectImpl>,
+          ffi.Pointer<objc.ObjCObjectImpl>,
+          ffi.Bool,
+          ffi.Pointer<objc.ObjCObjectImpl>,
+          ffi.Pointer<objc.ObjCObjectImpl>,
+          ffi.Long,
+          ffi.Pointer<objc.ObjCObjectImpl>,
+        )
+      >
+    >()
+    .asFunction<
+      void Function(
+        ffi.Pointer<objc.ObjCObjectImpl>,
+        ffi.Pointer<objc.ObjCSelector>,
+        ffi.Pointer<objc.ObjCObjectImpl>,
+        ffi.Pointer<objc.ObjCObjectImpl>,
+        ffi.Pointer<objc.ObjCObjectImpl>,
+        ffi.Pointer<objc.ObjCObjectImpl>,
+        ffi.Pointer<objc.ObjCObjectImpl>,
+        ffi.Pointer<objc.ObjCObjectImpl>,
+        bool,
+        ffi.Pointer<objc.ObjCObjectImpl>,
+        ffi.Pointer<objc.ObjCObjectImpl>,
+        int,
+        ffi.Pointer<objc.ObjCObjectImpl>,
+      )
+    >();
 final _objc_msgSend_1hz7y9r = objc.msgSendPointer
     .cast<
       ffi.NativeFunction<
@@ -6057,43 +6094,6 @@ final _objc_msgSend_1ukqyt8Fpret = objc.msgSendFpretPointer
       double Function(
         ffi.Pointer<objc.ObjCObjectImpl>,
         ffi.Pointer<objc.ObjCSelector>,
-      )
-    >();
-final _objc_msgSend_1vngrzb = objc.msgSendPointer
-    .cast<
-      ffi.NativeFunction<
-        ffi.Void Function(
-          ffi.Pointer<objc.ObjCObjectImpl>,
-          ffi.Pointer<objc.ObjCSelector>,
-          ffi.Pointer<objc.ObjCObjectImpl>,
-          ffi.Pointer<objc.ObjCObjectImpl>,
-          ffi.Pointer<objc.ObjCObjectImpl>,
-          ffi.Pointer<objc.ObjCObjectImpl>,
-          ffi.Pointer<objc.ObjCObjectImpl>,
-          ffi.Pointer<objc.ObjCObjectImpl>,
-          ffi.Bool,
-          ffi.Pointer<objc.ObjCObjectImpl>,
-          ffi.Pointer<objc.ObjCObjectImpl>,
-          ffi.Long,
-          ffi.Pointer<objc.ObjCObjectImpl>,
-        )
-      >
-    >()
-    .asFunction<
-      void Function(
-        ffi.Pointer<objc.ObjCObjectImpl>,
-        ffi.Pointer<objc.ObjCSelector>,
-        ffi.Pointer<objc.ObjCObjectImpl>,
-        ffi.Pointer<objc.ObjCObjectImpl>,
-        ffi.Pointer<objc.ObjCObjectImpl>,
-        ffi.Pointer<objc.ObjCObjectImpl>,
-        ffi.Pointer<objc.ObjCObjectImpl>,
-        ffi.Pointer<objc.ObjCObjectImpl>,
-        bool,
-        ffi.Pointer<objc.ObjCObjectImpl>,
-        ffi.Pointer<objc.ObjCObjectImpl>,
-        int,
-        ffi.Pointer<objc.ObjCObjectImpl>,
       )
     >();
 final _objc_msgSend_1ya1kjn = objc.msgSendPointer
