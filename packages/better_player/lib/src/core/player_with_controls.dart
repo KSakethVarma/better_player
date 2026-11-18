@@ -13,6 +13,7 @@ import 'package:better_player/src/subtitles/player_subtitles_drawer.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/widgets.dart';
 import 'package:material_ui/material_ui.dart';
 
 class PlayerWithControls extends StatefulWidget {
@@ -24,6 +25,12 @@ class PlayerWithControls extends StatefulWidget {
 }
 
 class _PlayerWithControlsState extends State<PlayerWithControls> {
+  static const double _fullscreenMaxZoomScale = 2.0;
+
+  /// Drives pinch-to-zoom of the video layer in fullscreen.
+  final TransformationController _fullscreenZoomController =
+      TransformationController();
+
   PlayerSubtitlesConfiguration get subtitlesConfiguration =>
       widget.controller!.betterPlayerSubtitlesConfiguration;
 
@@ -70,6 +77,7 @@ class _PlayerWithControlsState extends State<PlayerWithControls> {
   @override
   void dispose() {
     widget.controller!.removeVideoListener(_onVideoPlayerChanged);
+    _fullscreenZoomController.dispose();
     playerVisibilityStreamController.close();
     _controllerEventSubscription?.cancel();
     super.dispose();
@@ -146,18 +154,19 @@ class _PlayerWithControlsState extends State<PlayerWithControls> {
 
     final placeholderOnTop =
         betterPlayerController.betterPlayerConfiguration.placeholderOnTop;
+    final Widget videoLayer = Transform.rotate(
+      angle: rotation * pi / 180,
+      child: _buildVideoLayer(betterPlayerController),
+    );
     return Stack(
       fit: StackFit.passthrough,
       children: <Widget>[
         if (placeholderOnTop)
           PlayerPlaceholder(controller: betterPlayerController),
-        Transform.rotate(
-          angle: rotation * pi / 180,
-          child: _PlayerVideoFitWidget(
-            betterPlayerController,
-            betterPlayerController.getFit(),
-          ),
-        ),
+        if (betterPlayerController.isFullScreen)
+          Positioned.fill(child: videoLayer)
+        else
+          videoLayer,
         betterPlayerController.betterPlayerConfiguration.overlay ??
             const SizedBox(),
         for (final extension in betterPlayerController.extensions)
@@ -183,6 +192,28 @@ class _PlayerWithControlsState extends State<PlayerWithControls> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildVideoLayer(BetterPlayerController betterPlayerController) {
+    final Widget videoFitWidget = _PlayerVideoFitWidget(
+      betterPlayerController,
+      betterPlayerController.getFit(),
+    );
+    if (!betterPlayerController.isFullScreen) {
+      return videoFitWidget;
+    }
+    return ClipRect(
+      child: InteractiveViewer(
+        transformationController: _fullscreenZoomController,
+        maxScale: _fullscreenMaxZoomScale,
+        onInteractionEnd: (_) {
+          if (_fullscreenZoomController.value.getMaxScaleOnAxis() <= 1.01) {
+            _fullscreenZoomController.value = Matrix4.identity();
+          }
+        },
+        child: SizedBox.expand(child: videoFitWidget),
+      ),
     );
   }
 

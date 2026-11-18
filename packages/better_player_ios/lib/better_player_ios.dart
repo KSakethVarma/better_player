@@ -338,6 +338,8 @@ class BetterPlayerIOS extends BetterPlayerPlatform {
         certificateUrl: dataSource.drmConfiguration?.certificateUrl,
         licenseUrl: dataSource.drmConfiguration?.licenseUrl,
         headers: headers,
+        drmHeaders:
+            dataSource.drmConfiguration?.headers ?? const <String, String>{},
         useCache: dataSource.cacheConfiguration?.useCache ?? false,
         cacheKey: dataSource.cacheConfiguration?.key,
         cacheManager: cacheManager,
@@ -600,6 +602,7 @@ abstract class BetterPlayerWrapper {
     required int overriddenDuration,
     required String? videoExtension,
     Map<String, String> headers = const {},
+    Map<String, String> drmHeaders = const {},
   });
   void setDataSourceAsset(
     String asset, {
@@ -648,6 +651,7 @@ class NativeBetterPlayerWrapper implements BetterPlayerWrapper {
     required int overriddenDuration,
     required String? videoExtension,
     Map<String, String> headers = const {},
+    Map<String, String> drmHeaders = const {},
   }) {
     // The native string overload discards headers. Use the URL overload.
     final resolvedUrl = url.startsWith('/') ? 'file://$url' : url;
@@ -662,6 +666,7 @@ class NativeBetterPlayerWrapper implements BetterPlayerWrapper {
       certificateUrl: certificateUrl?.toNSString(),
       licenseUrl: licenseUrl?.toNSString(),
       headers: headers.toNSDictionary(),
+      drmHeaders: drmHeaders.toNSDictionary(),
       useCache: useCache,
       cacheKey: cacheKey?.toNSString(),
       cacheManager: cacheManager as CacheManager,

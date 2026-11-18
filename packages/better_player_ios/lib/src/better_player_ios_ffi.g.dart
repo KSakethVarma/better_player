@@ -742,6 +742,7 @@ extension BetterPlayer$Methods on BetterPlayer {
     objc.NSString? certificateUrl,
     objc.NSString? licenseUrl,
     required objc.NSDictionary headers,
+    required objc.NSDictionary drmHeaders,
     required bool useCache,
     objc.NSString? cacheKey,
     required CacheManager cacheManager,
@@ -754,17 +755,19 @@ extension BetterPlayer$Methods on BetterPlayer {
     final _$$ref$3 = certificateUrl?.ref;
     final _$$ref$4 = licenseUrl?.ref;
     final _$$ref$5 = headers.ref;
+    final _$$ref$9 = drmHeaders.ref;
     final _$$ref$6 = cacheKey?.ref;
     final _$$ref$7 = cacheManager.ref;
     final _$$ref$8 = videoExtension?.ref;
     _objc_msgSend_1vngrzb(
       _$$ref.pointer,
-      _sel_setDataSourceURL_key_certificateUrl_licenseUrl_headers_useCache_cacheKey_cacheManager_overriddenDuration_videoExtension_,
+      _sel_setDataSourceURL_key_certificateUrl_licenseUrl_headers_drmHeaders_useCache_cacheKey_cacheManager_overriddenDuration_videoExtension_,
       _$$ref$1.pointer,
       _$$ref$2?.pointer ?? ffi.nullptr,
       _$$ref$3?.pointer ?? ffi.nullptr,
       _$$ref$4?.pointer ?? ffi.nullptr,
       _$$ref$5.pointer,
+      _$$ref$9.pointer,
       useCache,
       _$$ref$6?.pointer ?? ffi.nullptr,
       _$$ref$7.pointer,
@@ -6067,6 +6070,7 @@ final _objc_msgSend_1vngrzb = objc.msgSendPointer
           ffi.Pointer<objc.ObjCObjectImpl>,
           ffi.Pointer<objc.ObjCObjectImpl>,
           ffi.Pointer<objc.ObjCObjectImpl>,
+          ffi.Pointer<objc.ObjCObjectImpl>,
           ffi.Bool,
           ffi.Pointer<objc.ObjCObjectImpl>,
           ffi.Pointer<objc.ObjCObjectImpl>,
@@ -6079,6 +6083,7 @@ final _objc_msgSend_1vngrzb = objc.msgSendPointer
       void Function(
         ffi.Pointer<objc.ObjCObjectImpl>,
         ffi.Pointer<objc.ObjCSelector>,
+        ffi.Pointer<objc.ObjCObjectImpl>,
         ffi.Pointer<objc.ObjCObjectImpl>,
         ffi.Pointer<objc.ObjCObjectImpl>,
         ffi.Pointer<objc.ObjCObjectImpl>,
@@ -6531,9 +6536,9 @@ late final _sel_setDataSourceURLString_key_certificateUrl_licenseUrl_useCache_ca
     objc.registerName(
       "setDataSourceURLString:key:certificateUrl:licenseUrl:useCache:cacheKey:cacheManager:overriddenDuration:videoExtension:",
     );
-late final _sel_setDataSourceURL_key_certificateUrl_licenseUrl_headers_useCache_cacheKey_cacheManager_overriddenDuration_videoExtension_ =
+late final _sel_setDataSourceURL_key_certificateUrl_licenseUrl_headers_drmHeaders_useCache_cacheKey_cacheManager_overriddenDuration_videoExtension_ =
     objc.registerName(
-      "setDataSourceURL:key:certificateUrl:licenseUrl:headers:useCache:cacheKey:cacheManager:overriddenDuration:videoExtension:",
+      "setDataSourceURL:key:certificateUrl:licenseUrl:headers:drmHeaders:useCache:cacheKey:cacheManager:overriddenDuration:videoExtension:",
     );
 late final _sel_setLogCallback_ = objc.registerName("setLogCallback:");
 late final _sel_setLooping_ = objc.registerName("setLooping:");

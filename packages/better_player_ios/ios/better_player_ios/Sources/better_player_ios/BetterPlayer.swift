@@ -20,6 +20,12 @@ public typealias FlutterResult = (Any?) -> Void
 @objc public class BetterPlayerEzDrmAssetsLoaderDelegate: NSObject, AVAssetResourceLoaderDelegate {
     public init(_ certificateURL: URL, withLicenseURL licenseURL: URL?) { super.init() }
 }
+public class BetterPlayerGumletAssetsLoaderDelegate: NSObject, AVAssetResourceLoaderDelegate {
+    public init(_ certificateURL: URL, withLicenseURL licenseURL: URL?) { super.init() }
+}
+public class BetterPlayerPallyconDrmAssetsLoaderDelegate: NSObject, AVAssetResourceLoaderDelegate {
+    public init?(_ certificateURL: URL, withLicenseURL licenseURL: URL?, withHeaders headers: [AnyHashable: Any]) { super.init() }
+}
 @objc public class CacheManager: NSObject {
     @objc public static let shared = CacheManager()
     public func getCachingPlayerItemForNormalPlayback(_ url: URL, cacheKey: String?, videoExtension: String?, headers: [NSObject: AnyObject]) -> AVPlayerItem? { return nil }
@@ -57,7 +63,7 @@ private var externalPlaybackActiveContext = 0
     public private(set) var player: AVPlayer
 
     /// The delegate for handling DRM asset loading.
-    public private(set) var loaderDelegate: BetterPlayerEzDrmAssetsLoaderDelegate?
+    public private(set) var loaderDelegate: AVAssetResourceLoaderDelegate?
 
     /// The Flutter event channel for sending player events.
     
@@ -113,6 +119,14 @@ private var externalPlaybackActiveContext = 0
 
     /// The current playback rate.
     public var playerRate: Float = 1.0
+
+    // Skip emulation for rates above 2x. Some streams (e.g. HLS + FairPlay) cannot
+    // play faster than 2x natively, so we play at 2x and seek ahead through buffered data.
+    private var skipTimer: Timer?
+    private var skipSpeed: Double = 0
+    private var skipSeeking = false
+    private var skipLastWall: CFTimeInterval = 0
+    private var skipLastTarget: Double = 0
 
     /// The overridden duration of the video in milliseconds.
     public var overriddenDuration: Int = 0
@@ -353,7 +367,7 @@ private var externalPlaybackActiveContext = 0
 
         if let path = resolvedPath {
             let url = URL(fileURLWithPath: path)
-            setDataSourceURL(url, key: key, certificateUrl: certificateUrl, licenseUrl: licenseUrl, headers: [:], useCache: false, cacheKey: cacheKey, cacheManager: cacheManager, overriddenDuration: overriddenDuration, videoExtension: nil)
+            setDataSourceURL(url, key: key, certificateUrl: certificateUrl, licenseUrl: licenseUrl, headers: [:], drmHeaders: [:], useCache: false, cacheKey: cacheKey, cacheManager: cacheManager, overriddenDuration: overriddenDuration, videoExtension: nil)
         } else {
             BetterPlayerApi.log(3, "setDataSourceAsset failed: asset not found at \(assetPath)")
             sendError(code: "VideoError", message: "Failed to load video: asset not found at \(assetPath)")
@@ -361,7 +375,7 @@ private var externalPlaybackActiveContext = 0
     }
 
     /// Sets the data source from a URL.
-    @objc public func setDataSourceURL(_ url: URL, key: String?, certificateUrl: String?, licenseUrl: String?, headers: [AnyHashable: Any], useCache: Bool, cacheKey: String?, cacheManager: CacheManager, overriddenDuration: Int, videoExtension: String?) {
+    @objc public func setDataSourceURL(_ url: URL, key: String?, certificateUrl: String?, licenseUrl: String?, headers: [AnyHashable: Any], drmHeaders: [AnyHashable: Any], useCache: Bool, cacheKey: String?, cacheManager: CacheManager, overriddenDuration: Int, videoExtension: String?) {
         BetterPlayerApi.log(1, "setDataSourceURL: \(url.absoluteString)")
         self.overriddenDuration = 0
 
@@ -376,7 +390,16 @@ private var externalPlaybackActiveContext = 0
                 let certURL = URL(string: certificateUrl)
                 let licURL = licenseUrl.flatMap { URL(string: $0) }
                 if let certURL = certURL {
-                    let delegate = BetterPlayerEzDrmAssetsLoaderDelegate(certURL, withLicenseURL: licURL)
+                    let isGumlet = (licenseUrl ?? "").lowercased().contains("fairplay.gumlet.com")
+                    let delegate: AVAssetResourceLoaderDelegate
+                    if isGumlet {
+                        delegate = BetterPlayerGumletAssetsLoaderDelegate(certURL, withLicenseURL: licURL)
+                    } else if let pallycon = BetterPlayerPallyconDrmAssetsLoaderDelegate(certURL, withLicenseURL: licURL, withHeaders: drmHeaders) {
+                        // PallyCon is selected when the DRM headers carry a siteId.
+                        delegate = pallycon
+                    } else {
+                        delegate = BetterPlayerEzDrmAssetsLoaderDelegate(certURL, withLicenseURL: licURL)
+                    }
                     self.loaderDelegate = delegate
                     let qos = DispatchQoS.QoSClass.default
                     let streamQueue = DispatchQueue(label: "streamQueue", qos: DispatchQoS(qosClass: qos, relativePriority: -1), attributes: [])
@@ -395,6 +418,7 @@ private var externalPlaybackActiveContext = 0
         self.key = key
         self.stalledCount = 0
         self.isStalledCheckStarted = false
+        stopSkipTimer()
         self.playerRate = 1
         self.isInitialized = false
         
@@ -514,10 +538,10 @@ private var externalPlaybackActiveContext = 0
                 }
             }
 
-            if isPlaying && playerRate > 0 && player.rate > 0 && abs(player.rate - playerRate) > 0.0001 {
+            if isPlaying && playerRate > 0 && player.rate > 0 && abs(player.rate - effectiveRate) > 0.0001 {
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self, !self.disposed, self.isPlaying, self.player.rate > 0,
-                          abs(self.player.rate - self.playerRate) > 0.0001 else { return }
+                          abs(self.player.rate - self.effectiveRate) > 0.0001 else { return }
                     self.applyPlayerRate()
                 }
             }
@@ -639,18 +663,92 @@ private var externalPlaybackActiveContext = 0
         }
     }
 
+    /// The rate actually set on AVPlayer (2x while skip emulation is active).
+    private var effectiveRate: Float {
+        return skipSpeed > 0 ? 2.0 : playerRate
+    }
+
     private func applyPlayerRate() {
+        // Rates above 2x are emulated when the item can't fast-forward natively.
+        if playerRate > 2.0, player.currentItem?.canPlayFastForward == false {
+            let target = Double(playerRate)
+            stopSkipTimer()
+            startSkipTimer(target: target)
+        } else if skipSpeed > 0 {
+            stopSkipTimer()
+        }
+        let rate = effectiveRate
         if #available(iOS 10.0, *) {
-            player.currentItem?.audioTimePitchAlgorithm = .timeDomain
+            // The default pitch algorithm only supports up to 2x; spectral supports 1/32x-32x.
+            player.currentItem?.audioTimePitchAlgorithm = playerRate > 2.0 ? .spectral : .timeDomain
         }
         if #available(iOS 16, *) {
-            player.defaultRate = playerRate
+            player.defaultRate = rate
         }
         if #available(iOS 10.0, *) {
-            player.playImmediately(atRate: playerRate)
+            player.playImmediately(atRate: rate)
         } else {
             player.play()
-            player.rate = playerRate
+            player.rate = rate
+        }
+    }
+
+    private func startSkipTimer(target: Double) {
+        skipSpeed = target
+        skipLastWall = CACurrentMediaTime()
+        skipLastTarget = player.currentItem?.currentTime().seconds ?? 0
+        skipTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+            self?.skipTick()
+        }
+    }
+
+    private func stopSkipTimer() {
+        skipTimer?.invalidate()
+        skipTimer = nil
+        skipSpeed = 0
+        skipSeeking = false
+        skipLastWall = 0
+    }
+
+    private func skipTick() {
+        guard isPlaying, skipSpeed > 2.0, player.rate != 0, !skipSeeking, let item = player.currentItem else { return }
+        let now = item.currentTime().seconds
+        let wall = CACurrentMediaTime()
+        // Each seek costs some playback time, so derive the skip from elapsed wall time:
+        // media time we should have covered at skipSpeed, minus what we actually covered.
+        var extra = skipSpeed - 2.0
+        if skipLastWall > 0, wall - skipLastWall < 6.0 {
+            extra = (wall - skipLastWall) * skipSpeed - (now - skipLastTarget)
+        }
+        extra = max(0.0, min(extra, skipSpeed * 4.0))
+        if extra < 0.2 {
+            skipLastWall = wall
+            skipLastTarget = now
+            return
+        }
+        let target = now + extra
+        // Only skip within data that is already buffered, with a small safety margin.
+        for value in item.loadedTimeRanges {
+            let range = value.timeRangeValue
+            let start = range.start.seconds
+            let end = start + range.duration.seconds
+            if now >= start && target < end - 1.0 {
+                skipSeeking = true
+                skipLastWall = wall
+                skipLastTarget = target
+                player.seek(
+                    to: CMTime(seconds: target, preferredTimescale: 600),
+                    toleranceBefore: .zero,
+                    toleranceAfter: CMTime(seconds: 3, preferredTimescale: 1)
+                ) { [weak self] _ in
+                    guard let self = self else { return }
+                    // The seek may land on a later keyframe; track the real position so the
+                    // next skip compensates and the average speed stays correct.
+                    self.skipLastTarget = self.player.currentItem?.currentTime().seconds ?? target
+                    self.skipSeeking = false
+                }
+                return
+            }
         }
     }
 
@@ -770,6 +868,7 @@ private var externalPlaybackActiveContext = 0
     @objc public func seekTo(_ location: Int) {
         BetterPlayerApi.log(1, "seekTo: \(location)")
         player.currentItem?.cancelPendingSeeks()
+        skipLastWall = 0 // re-anchor skip pacing after a user seek
         let wasPlaying = isPlaying
         if wasPlaying { player.pause() }
         isSeeking = true
@@ -812,7 +911,7 @@ private var externalPlaybackActiveContext = 0
 
     @objc public func setDataSourceURLString(_ urlString: String, key: String?, certificateUrl: String?, licenseUrl: String?, useCache: Bool, cacheKey: String?, cacheManager: CacheManager, overriddenDuration: Int, videoExtension: String?) {
         guard let url = URL(string: urlString) else { return }
-        setDataSourceURL(url, key: key, certificateUrl: certificateUrl, licenseUrl: licenseUrl, headers: [:], useCache: useCache, cacheKey: cacheKey, cacheManager: cacheManager, overriddenDuration: overriddenDuration, videoExtension: videoExtension)
+        setDataSourceURL(url, key: key, certificateUrl: certificateUrl, licenseUrl: licenseUrl, headers: [:], drmHeaders: [:], useCache: useCache, cacheKey: cacheKey, cacheManager: cacheManager, overriddenDuration: overriddenDuration, videoExtension: videoExtension)
     }
 
     // MARK: - Track Parameters
@@ -1050,6 +1149,7 @@ private var externalPlaybackActiveContext = 0
     /// Clears the player state.
     @objc public func clear() {
         BetterPlayerApi.log(1, "clear()")
+        stopSkipTimer()
         isInitialized = false
         isPlaying = false
         failedCount = 0
